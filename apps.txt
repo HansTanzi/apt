@@ -1,0 +1,3 @@
+# 每行一个应用：<GitHub 仓库> <最新 Release 中 .deb 的文件名模式>
+# 发布时下载每个应用最新正式版 Release（不含预发布）中匹配的 .deb
+HansTanzi/RestGuard *_amd64.deb

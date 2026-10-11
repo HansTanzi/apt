@@ -1,0 +1,88 @@
+name: Publish
+
+# 从 apps.txt 中每个应用的最新 Release 下载 .deb，生成签名的 APT 源，部署到 GitHub Pages。
+# 每次都从头生成，只包含各应用的最新版本；.deb 不进 git，仓库不会变大。
+# 应用发版后通过 repository_dispatch 触发，也可手动运行，改 apps.txt 后自动运行。
+# 需要 secret APT_SIGNING_KEY（无密码、ASCII 格式的 GPG 私钥），Pages 的 Source 选 GitHub Actions
+on:
+  repository_dispatch:
+    types: [release]
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [apps.txt, .github/workflows/publish.yml]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 多个应用同时发版时不并发部署；排队中的旧运行会被新的取代，没关系，每次都包含所有应用的最新版本
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build APT repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GPG_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          sudo apt-get install -y apt-utils
+          gpg --batch --import <<< "$GPG_KEY"
+
+          site="$RUNNER_TEMP/site"
+          mapfile -t apps < <(grep -vE '^\s*(#|$)' apps.txt)
+          for line in "${apps[@]}"; do
+            read -r repo pattern <<< "$line"
+            # 每个应用一个目录，不同应用的同名文件不会互相覆盖。找不到匹配文件时 gh 报错，整个发布失败，
+            # 避免发布一个缺了某个应用的源
+            dir="$site/pool/main/${repo,,}"
+            gh release download -R "$repo" --pattern "$pattern" --dir "$dir"
+          done
+
+          cd "$site"
+          # 按 .deb 实际包含的架构生成索引；Architecture: all 的包会被 --arch 自动并入每个架构
+          arches=$(for f in pool/main/*/*/*.deb; do dpkg-deb -f "$f" Architecture; done | sort -u | grep -vx all || true)
+          if [ -z "$arches" ]; then
+            echo "::error::No architecture-specific packages found"
+            exit 1
+          fi
+          for arch in $arches; do
+            dir="dists/stable/main/binary-$arch"
+            mkdir -p "$dir"
+            apt-ftparchive --arch "$arch" packages pool > "$dir/Packages"
+            gzip -k9 "$dir/Packages"
+          done
+
+          # 先写到别处再移入：直接重定向到 dists/stable/Release 会让空的 Release 文件也被算进校验列表
+          apt-ftparchive \
+            -o APT::FTPArchive::Release::Origin=HansTanzi \
+            -o APT::FTPArchive::Release::Label=HansTanzi \
+            -o APT::FTPArchive::Release::Suite=stable \
+            -o APT::FTPArchive::Release::Codename=stable \
+            -o APT::FTPArchive::Release::Architectures="$(echo $arches)" \
+            -o APT::FTPArchive::Release::Components=main \
+            release dists/stable > "$RUNNER_TEMP/Release"
+          mv "$RUNNER_TEMP/Release" dists/stable/Release
+          gpg --batch --yes --clearsign -o dists/stable/InRelease dists/stable/Release
+          gpg --batch --yes --detach-sign --armor -o dists/stable/Release.gpg dists/stable/Release
+          # 二进制公钥，用户直接下载到 /etc/apt/keyrings，无需 gpg --dearmor
+          gpg --export > hanstanzi.gpg
+
+          find pool -name '*.deb' -printf '%P\n' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
