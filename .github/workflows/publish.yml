@@ -2,11 +2,10 @@ name: Publish
 
 # 从 apps.txt 中每个应用的最新 Release 下载 .deb，生成签名的 APT 源，部署到 GitHub Pages。
 # 每次都从头生成，只包含各应用的最新版本；.deb 不进 git，仓库不会变大。
-# 应用发版后通过 repository_dispatch 触发，也可手动运行，改 apps.txt 后自动运行。
+# 应用发版后通过 workflow_dispatch 触发（应用仓库的令牌只需 Actions 权限，不能改本仓库内容），
+# 也可手动运行，改 apps.txt 后自动运行。
 # 需要 secret APT_SIGNING_KEY（无密码、ASCII 格式的 GPG 私钥），Pages 的 Source 选 GitHub Actions
 on:
-  repository_dispatch:
-    types: [release]
   workflow_dispatch:
   push:
     branches: [main]

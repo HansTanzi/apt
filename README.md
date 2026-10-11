@@ -27,7 +27,7 @@ Then install a package, e.g. `sudo apt install rest-guard`. Updates arrive with 
 
 [`publish.yml`](.github/workflows/publish.yml) downloads the `.deb` files from the latest release of every repository listed in [`apps.txt`](apps.txt), builds and signs the index, and deploys it to GitHub Pages. Only the latest version of each app is served; no `.deb` is stored in git.
 
-It runs when an app's release workflow sends a `release` [repository dispatch](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event), when `apps.txt` changes, or by hand.
+It runs when an app's release workflow triggers it via [workflow dispatch](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event), when `apps.txt` changes, or by hand.
 
 ### Setup
 
@@ -40,12 +40,12 @@ It runs when an app's release workflow sends a `release` [repository dispatch](h
   ```
 
   Back it up somewhere safe and never replace it: users trust this key when they add the repository.
-- **Dispatch token in each app repository**: a fine-grained PAT limited to this repository with **Contents: Read and write**, stored as `APT_DISPATCH_TOKEN`.
+- **Dispatch token in each app repository**: a fine-grained PAT limited to this repository with only **Actions: Read and write**, stored as `APT_DISPATCH_TOKEN`. Don't grant Contents write: anyone holding such a token could edit `apps.txt` and get their own package signed and published.
 
 ### Adding an app
 
 Add a line `<owner>/<repo> <asset pattern>` to `apps.txt`, and have the app's release workflow trigger this repository after the `.deb` is uploaded:
 
 ```sh
-gh api repos/HansTanzi/apt/dispatches -f event_type=release
+gh workflow run publish.yml -R HansTanzi/apt
 ```
