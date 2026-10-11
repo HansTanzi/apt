@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HansTanzi APT Repository</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { max-width: 46rem; margin: 2rem auto; padding: 0 1rem; font: 16px/1.6 system-ui, sans-serif; }
+  pre { padding: 1rem; overflow-x: auto; border-radius: 6px; background: rgba(127, 127, 127, .15); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: .4rem .6rem; text-align: left; border-bottom: 1px solid rgba(127, 127, 127, .3); }
+</style>
+</head>
+<body>
+<h1>HansTanzi APT Repository</h1>
+<p>Personal APT repository for Debian/Ubuntu.</p>
+<h2>Add the repository</h2>
+<pre><code>sudo install -d /etc/apt/keyrings
+curl -fsSL https://hanstanzi.github.io/apt/hanstanzi.gpg | sudo tee /etc/apt/keyrings/hanstanzi.gpg &gt; /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/hanstanzi.gpg] https://hanstanzi.github.io/apt stable main" | sudo tee /etc/apt/sources.list.d/hanstanzi.list
+sudo apt update</code></pre>
+<h2>Packages</h2>
+<table>
+<tr><th>Package</th><th>Version</th><th>Description</th></tr>
+<!-- PACKAGES -->
+</table>
+<h2>Install a package</h2>
+<pre><code>sudo apt install &lt;package&gt;</code></pre>
+<p>Updates arrive with <code>sudo apt update &amp;&amp; sudo apt upgrade</code>.</p>
+<p>Source: <a href="https://github.com/HansTanzi/apt">github.com/HansTanzi/apt</a></p>
+</body>
+</html>
